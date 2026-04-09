@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+@import './base.css';
+@import './overlay.css';
+@import './buttons.css';
+@import './camera.css';
+@import './language-selector.css';
+@import './rating.css';
+@import './session-end.css';

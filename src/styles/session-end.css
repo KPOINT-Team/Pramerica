@@ -1,0 +1,68 @@
+.end-session {
+    color: #fff;
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 40px 30px;
+}
+
+.phone-number {
+    font-size: 20px;
+    font-weight: 700;
+    color: #00A86B;
+    margin-top: 10px;
+}
+
+.feedback-input {
+    width: 100%;
+    max-width: 400px;
+    padding: 12px 16px;
+    margin: 20px auto;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    display: block;
+}
+
+.feedback-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.contact-icons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.contact-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #00A86B;
+    color: white;
+    text-decoration: none;
+    font-size: 24px;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.contact-icon:hover {
+    transform: scale(1.1);
+    background-color: #008f5a;
+}
+
+.contact-icon.whatsapp {
+    background-color: #25D366;
+}
+
+.contact-icon.whatsapp:hover {
+    background-color: #20BA5A;
+}
