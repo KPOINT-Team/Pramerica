@@ -12,10 +12,7 @@ const DETAILS = [
 export default function PersonalDetailsScreen() {
     return (
         <div id="personal-details-screen" style={{ display: 'none' }}>
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto px-3 overflow-y-auto" id="personal-details-main">
-                <p className="text-black text-center mb-2" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
-                    Please confirm if personal details are correct
-                </p>
+            <div style={{ gap: "calc(4 * var(--pw))"}} className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto px-2 overflow-y-auto" id="personal-details-main">
                 {/* Card */}
                 <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] w-[90%] max-w-sm overflow-hidden mb-2">
                     <div className="bg-[#003d6b] text-white text-center py-2.5 font-bold tracking-wide" style={{ fontSize: 'calc(4 * var(--pw))' }}>
@@ -23,16 +20,16 @@ export default function PersonalDetailsScreen() {
                     </div>
                     <div className="divide-y divide-gray-100">
                         {DETAILS.map((d, i) => (
-                            <div key={i} className="flex px-3 py-2.5" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
+                            <div key={i} className="flex px-3 py-2.5" style={{ fontSize: 'calc(3.5 * var(--pw))', gap: "calc(4 * var(--pw))" }}>
                                 <span className="font-semibold text-gray-700 w-[40%] shrink-0">{d.label}</span>
-                                <span className="text-gray-900 text-right flex-1">{d.value}</span>
+                                <span className="text-gray-900 flex-1">{d.value}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Disclaimer */}
-                <p className="text-black leading-snug text-center max-w-sm mb-2" style={{ fontSize: 'calc(3 * var(--pw))' }}>
+                <p className="text-black leading-snug text-center max-w-sm mb-2" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
                     <span className='font-bold'>DISCLAIMER:</span>:This policy is a life insurance product. It is not a fixed deposit, savings scheme, or recurring deposit.
                     Premium payments are subject to the terms and conditions of the policy.
                     Please read all documents carefully.

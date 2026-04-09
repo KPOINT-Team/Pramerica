@@ -31,6 +31,7 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
     const timeUpdateBoundRef = useRef(false);
     const recognitionRef = useRef(null);
     const transcriptRef = useRef('');
+    const transcriptBoxRef = useRef(null);
 
     const stopDetectionLoop = useCallback(() => {
         if (animFrameRef.current) {
@@ -181,6 +182,11 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
             return;
         }
 
+        // Release audio tracks from camera stream so SpeechRecognition can use the mic
+        if (streamRef.current) {
+            streamRef.current.getAudioTracks().forEach(track => track.stop());
+        }
+
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
@@ -200,8 +206,17 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         };
 
         recognition.onerror = (event) => {
-            if (event.error !== 'no-speech') {
-                console.warn('Speech recognition error:', event.error);
+            console.warn('Speech recognition error:', event.error);
+            // Auto-restart on recoverable errors
+            if (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network') {
+                try { recognition.start(); } catch (e) {}
+            }
+        };
+
+        recognition.onend = () => {
+            // Auto-restart if still in audio phase (mobile browsers stop recognition after silence)
+            if (phase === 'audio' && recognitionRef.current) {
+                try { recognition.start(); } catch (e) {}
             }
         };
 
@@ -212,6 +227,13 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
             recognitionRef.current = null;
         };
     }, [phase]);
+
+    // Auto-scroll transcript box
+    useEffect(() => {
+        if (transcriptBoxRef.current) {
+            transcriptBoxRef.current.scrollTop = transcriptBoxRef.current.scrollHeight;
+        }
+    }, [transcript]);
 
     const handleAudioDone = async () => {
         // Stop recognition
@@ -394,7 +416,7 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
 
                                 {/* Live transcript */}
                                 {transcript && (
-                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 overflow-y-auto" style={{ maxHeight: 'calc(20 * var(--pw))' }}>
+                                    <div ref={transcriptBoxRef} className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 overflow-y-auto" style={{ maxHeight: 'calc(20 * var(--pw))' }}>
                                         <p className="text-blue-800 text-center" style={{ fontSize: 'calc(3 * var(--pw))' }}>
                                             {transcript}
                                         </p>

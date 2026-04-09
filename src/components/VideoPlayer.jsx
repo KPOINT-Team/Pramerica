@@ -480,6 +480,29 @@ export default function VideoPlayer({ videoId }) {
                     }
                 });
 
+                // Force download via JS (KPoint cloning breaks native <a download>)
+                function triggerDownload(url, filename) {
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }
+
+                $("#btn-download-policy").off().on("click", function (e) {
+                    e.preventDefault();
+                    triggerDownload('/docs/policy-document.pdf', 'Policy-Document.pdf');
+                });
+                $("#btn-download-terms").off().on("click", function (e) {
+                    e.preventDefault();
+                    triggerDownload('/docs/terms-conditions.pdf', 'Terms-and-Conditions.pdf');
+                });
+                $("#btn-download-features").off().on("click", function (e) {
+                    e.preventDefault();
+                    triggerDownload('/docs/key-features.pdf', 'Key-Features-Document.pdf');
+                });
+
                 $("#btn-downloads-proceed").off().on("click", function () {
                     player.seekTo(295000);
                     player.playVideo();
@@ -505,6 +528,11 @@ export default function VideoPlayer({ videoId }) {
                         player.pauseVideo();
                         paused = true;
 
+                        // Release audio tracks so SpeechRecognition can use mic (mobile fix)
+                        if (cameraStreamRef.current) {
+                            cameraStreamRef.current.getAudioTracks().forEach(function(t) { t.stop(); });
+                        }
+
                         // Start speech recognition
                         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                         if (SpeechRecognition) {
@@ -520,7 +548,23 @@ export default function VideoPlayer({ videoId }) {
                                 }
                                 transcriptText = full;
                                 $("#declaration-transcript").text(full);
-                                $("#declaration-transcript-box").show();
+                                var box = $("#declaration-transcript-box");
+                                box.show();
+                                box[0].scrollTop = box[0].scrollHeight;
+                            };
+
+                            recognition.onerror = function (event) {
+                                console.warn('Speech recognition error:', event.error);
+                                if (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network') {
+                                    try { recognition.start(); } catch (e) {}
+                                }
+                            };
+
+                            recognition.onend = function () {
+                                // Auto-restart on mobile (browsers stop after silence)
+                                if (recognition) {
+                                    try { recognition.start(); } catch (e) {}
+                                }
                             };
 
                             recognition.start();

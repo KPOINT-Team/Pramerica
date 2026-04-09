@@ -263,7 +263,7 @@ export default function VoiceChat() {
 
                     <button
                         onClick={handleMicClick}
-                        className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 ${
+                        className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 ${
                             status !== 'idle'
                                 ? 'bg-red-500 text-white border-2 border-red-400/50 shadow-[0_4px_24px_rgba(239,68,68,0.45)]'
                                 : 'bg-white text-[#0066b3] border border-gray-200 shadow-[0_2px_12px_rgba(0,0,0,0.1)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.15)]'
@@ -276,9 +276,9 @@ export default function VoiceChat() {
                                 : undefined
                         }
                     >
-                        {status === 'connecting' && <Loader size={22} className="animate-spin" />}
-                        {status === 'idle' && <Mic size={22} />}
-                        {(status === 'listening' || status === 'speaking') && <MicOff size={22} />}
+                        {status === 'connecting' && <Loader size={20} className="animate-spin" />}
+                        {status === 'idle' && <Mic size={20} />}
+                        {(status === 'listening' || status === 'speaking') && <MicOff size={20} />}
                     </button>
                 </div>
             </div>

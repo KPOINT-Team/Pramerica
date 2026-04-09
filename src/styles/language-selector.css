@@ -48,7 +48,7 @@
 
 /* Navigation button base */
 .nav-btn {
-    padding: calc(2 * var(--pw)) calc(4 * var(--pw));
+    padding: calc(2.5 * var(--pw)) calc(4 * var(--pw));
     font-size: calc(4 * var(--pw));
     font-weight: 600;
     font-family: 'Inter', 'Open Sans', sans-serif;

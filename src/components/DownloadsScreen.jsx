@@ -16,17 +16,14 @@ export default function DownloadsScreen() {
                 </p>
                 <div className="flex flex-col gap-3 w-[85%] max-w-xs">
                     {DOWNLOADS.map(doc => (
-                        <a
+                        <div
                             key={doc.id}
                             id={doc.id}
-                            href={doc.href}
-                            download
-                            className="nav-btn nav-btn-active kpw-action-button flex items-center justify-center gap-2 text-center no-underline"
-                            style={{ textDecoration: 'none' }}
+                            className="nav-btn  text-[#042345] border-2 border-[#042345] kpw-action-button flex items-center justify-center gap-2 text-center cursor-pointer   transition-colors"
                         >
                             <Download size={16} />
                             {doc.label}
-                        </a>
+                        </div>
                     ))}
                 </div>
             </div>

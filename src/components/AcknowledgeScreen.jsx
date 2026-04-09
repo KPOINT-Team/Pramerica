@@ -1,4 +1,5 @@
 import React from 'react';
+import { Phone, Globe } from 'lucide-react';
 
 const SUMMARY = [
     { label: 'Free Look Period', value: 'Until 31st March 2026' },
@@ -18,21 +19,21 @@ export default function AcknowledgeScreen() {
                     </div>
                     <div className="divide-y divide-gray-100">
                         {SUMMARY.map((d, i) => (
-                            <div key={i} className="flex px-4 py-2.5" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
+                            <div key={i} className="flex px-3 py-2.5" style={{gap: "calc(4 * var(--pw))", fontSize: 'calc(3.5 * var(--pw))' }}>
                                 <span className="font-semibold text-gray-700 w-[45%] shrink-0">{d.label}</span>
-                                <span className="text-gray-900 text-right flex-1">{d.value}</span>
+                                <span className="text-gray-900  flex-1">{d.value}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 w-[90%] max-w-sm mb-4">
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 w-[90%] max-w-sm mb-4">
                     <p className="text-gray-700 text-center leading-relaxed" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
                         I confirm that I have watched this onboarding video and understand my policy.
                     </p>
                 </div>
 
-                <div id="btn-acknowledge" className="bg-[#003d6b] text-white font-semibold text-center py-2.5 px-6 rounded-lg cursor-pointer hover:bg-[#002d52] transition-colors kpw-action-button" style={{ fontSize: 'calc(3 * var(--pw))' }}>
+                <div id="btn-acknowledge" className="bg-[#003d6b] text-white  text-center py-2.5 px-6 rounded-lg cursor-pointer hover:bg-[#002d52] transition-colors kpw-action-button" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
                     I Acknowledge
                 </div>
             </div>
@@ -40,10 +41,10 @@ export default function AcknowledgeScreen() {
             {/* View 2: Rating */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto px-4" id="rating-view" style={{ display: 'none' }}>
                 <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] w-[90%] max-w-sm p-6 text-center">
-                    <p className="text-[#003d6b] font-bold mb-3" style={{ fontSize: 'calc(4 * var(--pw))' }}>
+                    <p className="text-[#003d6b] font-bold mb-2" style={{ fontSize: 'calc(5 * var(--pw))' }}>
                         How did you like this experience?
                     </p>
-                    <div className="flex justify-center gap-2 mb-4" id="star-container">
+                    <div className="flex justify-center gap-2 mb-3" id="star-container">
                         {[1, 2, 3, 4, 5].map(n => (
                             <span
                                 key={n}
@@ -55,7 +56,7 @@ export default function AcknowledgeScreen() {
                             </span>
                         ))}
                     </div>
-                    <p id="rating-msg" className="text-gray-500 mb-3 min-h-4" style={{ fontSize: 'calc(3 * var(--pw))' }}>&nbsp;</p>
+                    <p id="rating-msg" className="text-gray-500 mb-2 min-h-4" style={{ fontSize: 'calc(3 * var(--pw))' }}>&nbsp;</p>
                     <div id="btn-submit-rating" className="welcome-btn welcome-btn-filled kpw-action-button text-center" style={{ display: 'none' }}>
                         Submit
                     </div>
@@ -64,13 +65,22 @@ export default function AcknowledgeScreen() {
 
             {/* View 3: Thank You */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto px-4" id="thank-you-view" style={{ display: 'none' }}>
-                <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] w-[90%] max-w-sm p-8 text-center">
-                    <p className="mb-3" style={{ fontSize: 'calc(10 * var(--pw))' }}>🎉</p>
+                <div className="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.15)] w-[90%] max-w-sm p-6 text-center">
+                    <p className="mb-2" style={{ fontSize: 'calc(10 * var(--pw))' }}>🎉</p>
                     <p className="text-[#003d6b] font-bold mb-2" style={{ fontSize: 'calc(5 * var(--pw))' }}>Thank You!</p>
-                    <p className="text-gray-600" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
+                    <p className="text-gray-600 mb-4" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
                         Your onboarding is now complete.<br />
                         Welcome to the Pramerica family!
                     </p>
+                    <div className="flex gap-4 justify-center">
+                        <a href="tel:18001027070" className="flex flex-col items-center bg-[#003d6b] gap-1.5 px-1 py-1 rounded-lg hover:bg-[#002d52] transition-colors" style={{ textDecoration: 'none' }}>
+                            <span className="flex items-center gap-2 " style={{ fontSize: 'calc(3.5 * var(--pw))' }}><Phone size={16} /> Call</span>
+                            <span  style={{ fontSize: 'calc(2.5 * var(--pw))' }}>1800-102-7070</span>
+                        </a>
+                        <a href="https://pramericalife.in/"  target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 border  text-white bg-[#042345] px-3 py-1 rounded-lg hover:scale-105 transition-colors" style={{ fontSize: 'calc(3.5 * var(--pw))', background:"#042345", textDecoration: 'none' }}>
+                            <Globe size={22} color="white" /> Visit
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

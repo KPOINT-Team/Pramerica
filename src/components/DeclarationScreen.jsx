@@ -1,18 +1,18 @@
 import React from 'react';
 
-const DECLARATION_TEXT = "I, Rahul Sharma, confirm that I am purchasing a life insurance policy from Pramerica Life Insurance. I acknowledge that this is not a fixed deposit or savings scheme. I agree to pay a premium of ₹12,500 annually. I understand that I have a 30-day Free Look Period during which I may cancel and receive a refund. I confirm that I have been informed of my policy terms and have had the opportunity to ask questions.";
+const DECLARATION_TEXT = "I, Rahul Sharma, confirm that I am purchasing a life insurance policy from Pramerica Life Insurance. I acknowledge that this is not a fixed deposit or savings scheme. I agree to pay a premium of ₹12,500 annually.";
 
 export default function DeclarationScreen() {
     return (
         <div id="declaration-screen" style={{ display: 'none' }}>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto px-3 overflow-y-auto" id="declaration-main">
-                <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-3 w-[92%] max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                    <p className="text-[#003d6b] font-bold mb-3 text-center" style={{ fontSize: 'calc(4 * var(--pw))' }}>
+                <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-2 w-[92%] max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                    <p className="text-[#003d6b] font-bold mb-2 text-center" style={{ fontSize: 'calc(4 * var(--pw))' }}>
                         Read Declaration
                     </p>
 
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
-                        <p className="text-gray-800 leading-relaxed text-left" style={{ fontSize: 'calc(3 * var(--pw))' }}>
+                        <p className="text-gray-800 leading-relaxed text-left" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
                             {DECLARATION_TEXT}
                         </p>
                     </div>
