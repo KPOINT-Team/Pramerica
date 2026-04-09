@@ -540,41 +540,51 @@ export default function VideoPlayer({ videoId }) {
                         var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                         if (SpeechRecognition) {
                             recognition = new SpeechRecognition();
-                            recognition.continuous = true;
-                            recognition.interimResults = true;
+                            recognition.continuous = false;
+                            recognition.interimResults = false;
                             recognition.lang = 'en-IN';
 
-                            recognition.onresult = function (event) {
-                                for (var i = event.resultIndex; i < event.results.length; i++) {
-                                    if (event.results[i].isFinal) {
-                                        transcriptText += event.results[i][0].transcript + ' ';
-                                        $("#declaration-transcript").text(transcriptText.trim());
-                                        var box = $("#declaration-transcript-box");
-                                        box.show();
-                                        box[0].scrollTop = box[0].scrollHeight;
+                            var manualStop = false;
+                            var restartTimer = null;
+
+                            function scheduleRestart() {
+                                clearTimeout(restartTimer);
+                                restartTimer = setTimeout(function () {
+                                    if (!manualStop && recognition && paused) {
+                                        try { recognition.start(); } catch (e) {}
                                     }
+                                }, 500);
+                            }
+
+                            recognition.onresult = function (event) {
+                                var result = event.results[0];
+                                if (result && result.isFinal) {
+                                    transcriptText += result[0].transcript + ' ';
+                                    $("#declaration-transcript").text(transcriptText.trim());
+                                    var box = $("#declaration-transcript-box");
+                                    box.show();
+                                    box[0].scrollTop = box[0].scrollHeight;
                                 }
                             };
 
                             recognition.onerror = function (event) {
                                 console.warn('Speech recognition error:', event.error);
-                                if (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network') {
-                                    setTimeout(function () {
-                                        if (recognition && paused) {
-                                            try { recognition.start(); } catch (e) {}
-                                        }
-                                    }, 300);
-                                }
                             };
 
                             recognition.onend = function () {
-                                if (recognition && paused) {
-                                    setTimeout(function () {
-                                        if (recognition && paused) {
-                                            try { recognition.start(); } catch (e) {}
-                                        }
-                                    }, 300);
+                                if (!manualStop && recognition && paused) {
+                                    scheduleRestart();
                                 }
+                            };
+
+                            recognition._stop = function () {
+                                manualStop = true;
+                                clearTimeout(restartTimer);
+                                try { recognition.stop(); } catch (e) {}
+                            };
+                            recognition._restart = function () {
+                                manualStop = false;
+                                scheduleRestart();
                             };
 
                             recognition.start();
@@ -592,11 +602,11 @@ export default function VideoPlayer({ videoId }) {
                 });
 
                 $("#btn-declaration-done").off().on("click", async function () {
-                    try { if (recognition) recognition.stop(); } catch (e) {}
+                    if (recognition) recognition._stop();
 
                     if (!transcriptText.trim()) {
                         $("#declaration-message").text('No speech detected. Please read the statement aloud.').css('color', '#dc2626');
-                        try { if (recognition) recognition.start(); } catch (e) {}
+                        if (recognition) recognition._restart();
                         return;
                     }
 
@@ -623,12 +633,12 @@ export default function VideoPlayer({ videoId }) {
                             transcriptText = '';
                             $("#declaration-transcript").text('');
                             $("#declaration-transcript-box").hide();
-                            try { if (recognition) recognition.start(); } catch (e) {}
+                            if (recognition) recognition._restart();
                         }
                     } catch (err) {
                         $("#declaration-message").text('Verification failed. Please try again.').css('color', '#dc2626');
                         $(this).text('I Have Read the Statement').css({ opacity: 1, pointerEvents: 'auto' });
-                        try { if (recognition) recognition.start(); } catch (e) {}
+                        if (recognition) recognition._restart();
                     }
                 });
             },

@@ -188,47 +188,59 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         }
 
         const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
+        recognition.continuous = false;
+        recognition.interimResults = false;
         recognition.lang = 'en-IN';
         recognitionRef.current = recognition;
         transcriptRef.current = '';
         setTranscript('');
         setAudioError('');
 
-        recognition.onresult = (event) => {
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                if (event.results[i].isFinal) {
-                    transcriptRef.current += event.results[i][0].transcript + ' ';
-                    setTranscript(transcriptRef.current.trim());
+        let manualStop = false;
+        let restartTimer = null;
+
+        function scheduleRestart() {
+            clearTimeout(restartTimer);
+            restartTimer = setTimeout(() => {
+                if (!manualStop && recognitionRef.current) {
+                    try { recognition.start(); } catch (e) {}
                 }
+            }, 500);
+        }
+
+        recognition.onresult = (event) => {
+            const result = event.results[0];
+            if (result && result.isFinal) {
+                transcriptRef.current += result[0].transcript + ' ';
+                setTranscript(transcriptRef.current.trim());
             }
         };
 
         recognition.onerror = (event) => {
             console.warn('Speech recognition error:', event.error);
-            if (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network') {
-                setTimeout(() => {
-                    if (recognitionRef.current) {
-                        try { recognition.start(); } catch (e) {}
-                    }
-                }, 300);
-            }
         };
 
         recognition.onend = () => {
-            if (phase === 'audio' && recognitionRef.current) {
-                setTimeout(() => {
-                    if (recognitionRef.current) {
-                        try { recognition.start(); } catch (e) {}
-                    }
-                }, 300);
+            if (!manualStop && phase === 'audio' && recognitionRef.current) {
+                scheduleRestart();
             }
+        };
+
+        recognition._stop = () => {
+            manualStop = true;
+            clearTimeout(restartTimer);
+            try { recognition.stop(); } catch (e) {}
+        };
+        recognition._restart = () => {
+            manualStop = false;
+            scheduleRestart();
         };
 
         recognition.start();
 
         return () => {
+            manualStop = true;
+            clearTimeout(restartTimer);
             try { recognition.stop(); } catch (e) {}
             recognitionRef.current = null;
         };
@@ -242,14 +254,12 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
     }, [transcript]);
 
     const handleAudioDone = async () => {
-        // Stop recognition
-        try { recognitionRef.current?.stop(); } catch (e) {}
+        recognitionRef.current?._stop();
 
         const spoken = transcriptRef.current.trim();
         if (!spoken) {
             setAudioError('No speech detected. Please try again.');
-            // Restart recognition
-            try { recognitionRef.current?.start(); } catch (e) {}
+            recognitionRef.current?._restart();
             return;
         }
 
@@ -268,12 +278,12 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
                 setAudioVerifying(false);
                 transcriptRef.current = '';
                 setTranscript('');
-                try { recognitionRef.current?.start(); } catch (e) {}
+                recognitionRef.current?._restart();
             }
         } catch (err) {
             setAudioError('Verification failed. Please try again.');
             setAudioVerifying(false);
-            try { recognitionRef.current?.start(); } catch (e) {}
+            recognitionRef.current?._restart();
         }
     };
 
