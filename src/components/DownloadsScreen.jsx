@@ -19,7 +19,7 @@ export default function DownloadsScreen() {
                         <div
                             key={doc.id}
                             id={doc.id}
-                            className="nav-btn  text-[#042345] border-2 border-[#042345] kpw-action-button flex items-center justify-center gap-2 text-center cursor-pointer   transition-colors"
+                            className="nav-btn text-[#042345] border-2 border-[#042345] kpw-action-button flex items-center justify-center gap-2 text-center cursor-pointer   transition-colors"
                         >
                             <Download size={16} />
                             {doc.label}

@@ -87,7 +87,7 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
                 if (videoRef.current) videoRef.current.srcObject = stream;
                 await initFaceMesh();
                 if (cancelled) return;
-                initAudioAnalyser(stream);
+                await initAudioAnalyser(stream);
                 setPhase('camera-on');
                 nextPhaseRef.current = 'face-check';
                 playPlayer();
@@ -199,24 +199,34 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         recognition.onresult = (event) => {
             let fullTranscript = '';
             for (let i = 0; i < event.results.length; i++) {
-                fullTranscript += event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    fullTranscript += event.results[i][0].transcript;
+                }
             }
-            transcriptRef.current = fullTranscript;
-            setTranscript(fullTranscript);
+            if (fullTranscript) {
+                transcriptRef.current = fullTranscript;
+                setTranscript(fullTranscript);
+            }
         };
 
         recognition.onerror = (event) => {
             console.warn('Speech recognition error:', event.error);
-            // Auto-restart on recoverable errors
             if (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network') {
-                try { recognition.start(); } catch (e) {}
+                setTimeout(() => {
+                    if (recognitionRef.current) {
+                        try { recognition.start(); } catch (e) {}
+                    }
+                }, 300);
             }
         };
 
         recognition.onend = () => {
-            // Auto-restart if still in audio phase (mobile browsers stop recognition after silence)
             if (phase === 'audio' && recognitionRef.current) {
-                try { recognition.start(); } catch (e) {}
+                setTimeout(() => {
+                    if (recognitionRef.current) {
+                        try { recognition.start(); } catch (e) {}
+                    }
+                }, 300);
             }
         };
 

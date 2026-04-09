@@ -2,8 +2,9 @@ let audioContext = null;
 let analyser = null;
 let dataArray = null;
 
-export function initAudioAnalyser(stream) {
+export async function initAudioAnalyser(stream) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') await audioContext.resume();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 256;

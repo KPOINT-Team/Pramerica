@@ -1,7 +1,7 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
-import { Mic, MicOff, Loader } from 'lucide-react';
+import { Mic, Square, Loader } from 'lucide-react';
 import { createGeminiClient, LIVE_MODEL } from '../services/geminiService.js';
-import { pausePlayer, playPlayer } from './VideoPlayer.jsx';
+import { pausePlayer, playPlayer, isPlayerPaused } from './VideoPlayer.jsx';
 
 function encode(bytes) {
     let binary = '';
@@ -50,6 +50,7 @@ export default function VoiceChat() {
     const nextStartTimeRef = useRef(0);
     const audioSourcesRef = useRef(new Set());
     const mediaStreamRef = useRef(null);
+    const wasPlayerPausedRef = useRef(false);
 
     useEffect(() => {
         statusRef.current = status;
@@ -108,6 +109,11 @@ export default function VoiceChat() {
         try {
             const inputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
             const outputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+
+            // Mobile browsers require explicit resume after user gesture
+            if (inputCtx.state === 'suspended') await inputCtx.resume();
+            if (outputCtx.state === 'suspended') await outputCtx.resume();
+
             audioContextsRef.current = { input: inputCtx, output: outputCtx };
 
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -166,6 +172,10 @@ export default function VoiceChat() {
                         if (base64Audio && audioContextsRef.current.output) {
                             setStatus('speaking');
                             try {
+                                // Ensure AudioContext is running (mobile can suspend it)
+                                if (audioContextsRef.current.output.state === 'suspended') {
+                                    await audioContextsRef.current.output.resume();
+                                }
                                 const audioData = decode(base64Audio);
                                 const dataInt16 = new Int16Array(audioData.buffer, audioData.byteOffset, audioData.byteLength / 2);
                                 const frameCount = dataInt16.length;
@@ -225,11 +235,14 @@ export default function VoiceChat() {
 
     const handleMicClick = () => {
         if (status === 'idle') {
+            wasPlayerPausedRef.current = isPlayerPaused();
             pausePlayer();
             startSession();
         } else {
             cleanupSession();
-            playPlayer();
+            if (!wasPlayerPausedRef.current) {
+                playPlayer();
+            }
         }
     };
 
@@ -278,7 +291,7 @@ export default function VoiceChat() {
                     >
                         {status === 'connecting' && <Loader size={20} className="animate-spin" />}
                         {status === 'idle' && <Mic size={20} />}
-                        {(status === 'listening' || status === 'speaking') && <MicOff size={20} />}
+                        {(status === 'listening' || status === 'speaking') && <Square size={14} fill="currentColor" />}
                     </button>
                 </div>
             </div>

@@ -69,6 +69,9 @@ export function pausePlayer() {
 export function playPlayer() {
     if (_player?.playVideo) _player.playVideo();
 }
+export function isPlayerPaused() {
+    return _player?.getPlayState?.() === 2;
+}
 let _stopRecordingFn = null;
 export function stopRecording() {
     if (_stopRecordingFn) _stopRecordingFn();
@@ -544,26 +547,37 @@ export default function VideoPlayer({ videoId }) {
                             recognition.onresult = function (event) {
                                 var full = '';
                                 for (var i = 0; i < event.results.length; i++) {
-                                    full += event.results[i][0].transcript;
+                                    if (event.results[i].isFinal) {
+                                        full += event.results[i][0].transcript;
+                                    }
                                 }
-                                transcriptText = full;
-                                $("#declaration-transcript").text(full);
-                                var box = $("#declaration-transcript-box");
-                                box.show();
-                                box[0].scrollTop = box[0].scrollHeight;
+                                if (full) {
+                                    transcriptText = full;
+                                    $("#declaration-transcript").text(full);
+                                    var box = $("#declaration-transcript-box");
+                                    box.show();
+                                    box[0].scrollTop = box[0].scrollHeight;
+                                }
                             };
 
                             recognition.onerror = function (event) {
                                 console.warn('Speech recognition error:', event.error);
                                 if (event.error === 'no-speech' || event.error === 'aborted' || event.error === 'network') {
-                                    try { recognition.start(); } catch (e) {}
+                                    setTimeout(function () {
+                                        if (recognition && paused) {
+                                            try { recognition.start(); } catch (e) {}
+                                        }
+                                    }, 300);
                                 }
                             };
 
                             recognition.onend = function () {
-                                // Auto-restart on mobile (browsers stop after silence)
-                                if (recognition) {
-                                    try { recognition.start(); } catch (e) {}
+                                if (recognition && paused) {
+                                    setTimeout(function () {
+                                        if (recognition && paused) {
+                                            try { recognition.start(); } catch (e) {}
+                                        }
+                                    }, 300);
                                 }
                             };
 
@@ -599,6 +613,7 @@ export default function VideoPlayer({ videoId }) {
 
                         if (passed) {
                             $("#declaration-message").text('Verification successful!').css('color', '#16a34a');
+                            recognition = null;
                             // Stop recording / hide PIP
                             if (typeof _stopRecordingFn === 'function') _stopRecordingFn();
                             setTimeout(function () {
