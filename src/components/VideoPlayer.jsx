@@ -25,7 +25,7 @@ const VIDEO_PARAMS = JSON.stringify({
     search: false,
     like: false,
     showPlayIconOnMobile: false,
-    // playercontrols: { hide: 'all' },
+    playercontrols: { hide: 'all' },
     'add-widgets': 'utils,markup,fontloader',
 });
 
