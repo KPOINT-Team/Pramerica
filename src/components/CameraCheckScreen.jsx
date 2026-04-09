@@ -197,15 +197,11 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         setAudioError('');
 
         recognition.onresult = (event) => {
-            let fullTranscript = '';
-            for (let i = 0; i < event.results.length; i++) {
+            for (let i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    fullTranscript += event.results[i][0].transcript;
+                    transcriptRef.current += event.results[i][0].transcript + ' ';
+                    setTranscript(transcriptRef.current.trim());
                 }
-            }
-            if (fullTranscript) {
-                transcriptRef.current = fullTranscript;
-                setTranscript(fullTranscript);
             }
         };
 

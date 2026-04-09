@@ -545,18 +545,14 @@ export default function VideoPlayer({ videoId }) {
                             recognition.lang = 'en-IN';
 
                             recognition.onresult = function (event) {
-                                var full = '';
-                                for (var i = 0; i < event.results.length; i++) {
+                                for (var i = event.resultIndex; i < event.results.length; i++) {
                                     if (event.results[i].isFinal) {
-                                        full += event.results[i][0].transcript;
+                                        transcriptText += event.results[i][0].transcript + ' ';
+                                        $("#declaration-transcript").text(transcriptText.trim());
+                                        var box = $("#declaration-transcript-box");
+                                        box.show();
+                                        box[0].scrollTop = box[0].scrollHeight;
                                     }
-                                }
-                                if (full) {
-                                    transcriptText = full;
-                                    $("#declaration-transcript").text(full);
-                                    var box = $("#declaration-transcript-box");
-                                    box.show();
-                                    box[0].scrollTop = box[0].scrollHeight;
                                 }
                             };
 
