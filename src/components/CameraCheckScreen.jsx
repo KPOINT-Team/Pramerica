@@ -3,7 +3,7 @@ import { Camera, CheckCircle, Circle, Loader, Mic } from 'lucide-react';
 import { initFaceMesh, detectFace, isFaceCentered, checkBrightness, detectBlink, getHeadTurnRatio } from '../services/faceDetection.js';
 import { initAudioAnalyser } from '../services/audioCheck.js';
 import { pausePlayer, playPlayer, getPlayer } from './VideoPlayer.jsx';
-import { verifySpeechText } from '../services/geminiService.js';
+import { verifySpeechText, transcribeAudio } from '../services/geminiService.js';
 
 const EXPECTED_TEXT = "My name is Rahul Sharma and I am starting my Pramerica onboarding.";
 
@@ -15,9 +15,9 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
     });
     const [livenessChecks, setLivenessChecks] = useState({ blinked: false, headTurned: false });
     const [audioPass, setAudioPass] = useState(false);
-    const [audioVerifying, setAudioVerifying] = useState(false);
     const [audioError, setAudioError] = useState('');
     const [transcript, setTranscript] = useState('');
+    const [audioState, setAudioState] = useState('recording'); // 'recording' | 'transcribing' | 'review' | 'verifying' | 'passed'
     const [pipMode, setPipMode] = useState(false);
 
     const videoRef = useRef(null);
@@ -29,9 +29,11 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
     const headRightRef = useRef(false);
     const nextPhaseRef = useRef(null);
     const timeUpdateBoundRef = useRef(false);
-    const recognitionRef = useRef(null);
     const transcriptRef = useRef('');
     const transcriptBoxRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioStreamRef = useRef(null);
+    const audioBlobRef = useRef(null);
 
     const stopDetectionLoop = useCallback(() => {
         if (animFrameRef.current) {
@@ -172,77 +174,56 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         return () => stopDetectionLoop();
     }, [phase]);
 
-    // Audio check — start SpeechRecognition when phase becomes 'audio'
+    // Audio check — start MediaRecorder when phase becomes 'audio'
     useEffect(() => {
         if (phase !== 'audio') return;
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            setAudioError('Speech recognition not supported in this browser.');
-            return;
-        }
-
-        // Release audio tracks from camera stream so SpeechRecognition can use the mic
+        // Release audio tracks from camera stream so MediaRecorder can use the mic
         if (streamRef.current) {
             streamRef.current.getAudioTracks().forEach(track => track.stop());
         }
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-IN';
-        recognitionRef.current = recognition;
         transcriptRef.current = '';
         setTranscript('');
         setAudioError('');
+        setAudioState('recording');
 
-        let manualStop = false;
-        let restartTimer = null;
+        let cancelled = false;
 
-        function scheduleRestart() {
-            clearTimeout(restartTimer);
-            restartTimer = setTimeout(() => {
-                if (!manualStop && recognitionRef.current) {
-                    try { recognition.start(); } catch (e) {}
-                }
-            }, 500);
-        }
+        (async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+                audioStreamRef.current = stream;
 
-        recognition.onresult = (event) => {
-            const result = event.results[0];
-            if (result && result.isFinal) {
-                transcriptRef.current += result[0].transcript + ' ';
-                setTranscript(transcriptRef.current.trim());
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+                    ? 'audio/webm'
+                    : MediaRecorder.isTypeSupported('audio/mp4')
+                    ? 'audio/mp4'
+                    : '';
+                const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+                mediaRecorderRef.current = mr;
+                const chunks = [];
+                mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+                mr.onstop = () => {
+                    audioBlobRef.current = new Blob(chunks, { type: mimeType || 'audio/webm' });
+                };
+                mr.start();
+            } catch (err) {
+                setAudioError('Microphone access denied.');
             }
-        };
-
-        recognition.onerror = (event) => {
-            console.warn('Speech recognition error:', event.error);
-        };
-
-        recognition.onend = () => {
-            if (!manualStop && phase === 'audio' && recognitionRef.current) {
-                scheduleRestart();
-            }
-        };
-
-        recognition._stop = () => {
-            manualStop = true;
-            clearTimeout(restartTimer);
-            try { recognition.stop(); } catch (e) {}
-        };
-        recognition._restart = () => {
-            manualStop = false;
-            scheduleRestart();
-        };
-
-        recognition.start();
+        })();
 
         return () => {
-            manualStop = true;
-            clearTimeout(restartTimer);
-            try { recognition.stop(); } catch (e) {}
-            recognitionRef.current = null;
+            cancelled = true;
+            const mr = mediaRecorderRef.current;
+            try { if (mr && mr.state !== 'inactive') mr.stop(); } catch (e) {}
+            if (audioStreamRef.current) {
+                audioStreamRef.current.getTracks().forEach(t => t.stop());
+            }
+            mediaRecorderRef.current = null;
+            audioStreamRef.current = null;
+            audioBlobRef.current = null;
         };
     }, [phase]);
 
@@ -253,37 +234,99 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         }
     }, [transcript]);
 
-    const handleAudioDone = async () => {
-        recognitionRef.current?._stop();
+    const startNewRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioStreamRef.current = stream;
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm')
+                ? 'audio/webm'
+                : MediaRecorder.isTypeSupported('audio/mp4')
+                ? 'audio/mp4'
+                : '';
+            const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+            mediaRecorderRef.current = mr;
+            const chunks = [];
+            mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+            mr.onstop = () => {
+                audioBlobRef.current = new Blob(chunks, { type: mimeType || 'audio/webm' });
+            };
+            mr.start();
+        } catch (e) {
+            setAudioError('Microphone access denied.');
+        }
+    };
 
-        const spoken = transcriptRef.current.trim();
-        if (!spoken) {
-            setAudioError('No speech detected. Please try again.');
-            recognitionRef.current?._restart();
+    const handleAudioDone = async () => {
+        const mr = mediaRecorderRef.current;
+        if (!mr || mr.state === 'inactive') return;
+
+        setAudioState('transcribing');
+        setAudioError('');
+
+        await new Promise((resolve) => {
+            mr.addEventListener('stop', resolve, { once: true });
+            try { mr.stop(); } catch (e) { resolve(); }
+        });
+
+        if (audioStreamRef.current) {
+            audioStreamRef.current.getTracks().forEach(t => t.stop());
+            audioStreamRef.current = null;
+        }
+
+        const blob = audioBlobRef.current;
+        if (!blob || blob.size === 0) {
+            setAudioError('No audio captured. Please try again.');
+            setAudioState('recording');
+            await startNewRecording();
             return;
         }
 
-        setAudioVerifying(true);
+        try {
+            const mimeType = blob.type || 'audio/webm';
+            const spoken = await transcribeAudio(blob, mimeType);
+            if (!spoken) {
+                setAudioError('No speech detected. Please try again.');
+                setAudioState('recording');
+                await startNewRecording();
+                return;
+            }
+            setTranscript(spoken);
+            transcriptRef.current = spoken;
+            setAudioState('review');
+        } catch (err) {
+            setAudioError('Transcription failed. Please try again.');
+            setAudioState('recording');
+            await startNewRecording();
+        }
+    };
+
+    const handleAudioRetry = async () => {
+        setTranscript('');
+        transcriptRef.current = '';
+        setAudioError('');
+        setAudioState('recording');
+        await startNewRecording();
+    };
+
+    const handleAudioContinue = async () => {
+        setAudioState('verifying');
         setAudioError('');
 
         try {
-            const passed = await verifySpeechText(spoken, EXPECTED_TEXT);
+            const passed = await verifySpeechText(transcriptRef.current, EXPECTED_TEXT);
             if (passed) {
                 setAudioPass(true);
+                setAudioState('passed');
                 setPhase('start-recording-waiting');
                 nextPhaseRef.current = 'start-recording-start';
                 playPlayer();
             } else {
-                setAudioError('Text did not match. Please try again.');
-                setAudioVerifying(false);
-                transcriptRef.current = '';
-                setTranscript('');
-                recognitionRef.current?._restart();
+                setAudioError('Text did not match. Please retry.');
+                setAudioState('review');
             }
         } catch (err) {
             setAudioError('Verification failed. Please try again.');
-            setAudioVerifying(false);
-            recognitionRef.current?._restart();
+            setAudioState('review');
         }
     };
 
@@ -430,8 +473,8 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
                                     </p>
                                 </div>
 
-                                {/* Live transcript */}
-                                {transcript && (
+                                {/* Transcript preview (review state) */}
+                                {audioState === 'review' && transcript && (
                                     <div ref={transcriptBoxRef} className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 overflow-y-auto" style={{ maxHeight: 'calc(20 * var(--pw))' }}>
                                         <p className="text-blue-800 text-center" style={{ fontSize: 'calc(3 * var(--pw))' }}>
                                             {transcript}
@@ -439,27 +482,69 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
                                     </div>
                                 )}
 
-                                {/* Status */}
+                                {/* Status indicator */}
                                 <div className="flex items-center justify-center gap-2 mb-3">
-                                    <Mic size={16} className="text-green-400 animate-pulse" />
-                                    <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>
-                                        Listening...
-                                    </span>
+                                    {audioState === 'recording' && (
+                                        <>
+                                            <Mic size={16} className="text-red-500 animate-pulse" />
+                                            <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Recording...</span>
+                                        </>
+                                    )}
+                                    {audioState === 'transcribing' && (
+                                        <>
+                                            <Loader size={16} className="text-blue-500 animate-spin" />
+                                            <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Transcribing...</span>
+                                        </>
+                                    )}
+                                    {audioState === 'review' && (
+                                        <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Review your speech:</span>
+                                    )}
+                                    {audioState === 'verifying' && (
+                                        <>
+                                            <Loader size={16} className="text-blue-500 animate-spin" />
+                                            <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Verifying...</span>
+                                        </>
+                                    )}
                                 </div>
 
                                 {audioError && (
                                     <p className="text-red-500 text-center mb-2" style={{ fontSize: 'calc(3 * var(--pw))' }}>{audioError}</p>
                                 )}
 
-                                {/* Done button */}
-                                <button
-                                    onClick={handleAudioDone}
-                                    disabled={audioVerifying}
-                                    className="w-full bg-[#003d6b] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                    style={{ fontSize: 'calc(3.5 * var(--pw))' }}
-                                >
-                                    {audioVerifying ? 'Verifying...' : 'Done'}
-                                </button>
+                                {/* Buttons based on state */}
+                                {audioState === 'recording' && (
+                                    <>
+                                        <p className="text-gray-500 text-center mb-2" style={{ fontSize: 'calc(2.8 * var(--pw))' }}>
+                                            Tap Done when you're finished speaking.
+                                        </p>
+                                        <button
+                                            onClick={handleAudioDone}
+                                            className="w-full bg-[#003d6b] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer"
+                                            style={{ fontSize: 'calc(3.5 * var(--pw))' }}
+                                        >
+                                            Done
+                                        </button>
+                                    </>
+                                )}
+
+                                {audioState === 'review' && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleAudioRetry}
+                                            className="flex-1 bg-gray-200 text-gray-800 font-semibold py-2.5 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
+                                            style={{ fontSize: 'calc(3.5 * var(--pw))' }}
+                                        >
+                                            Retry
+                                        </button>
+                                        <button
+                                            onClick={handleAudioContinue}
+                                            className="flex-1 bg-[#003d6b] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer"
+                                            style={{ fontSize: 'calc(3.5 * var(--pw))' }}
+                                        >
+                                            Continue
+                                        </button>
+                                    </div>
+                                )}
                             </>
                         )}
 

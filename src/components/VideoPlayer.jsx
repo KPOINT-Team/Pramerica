@@ -521,7 +521,10 @@ export default function VideoPlayer({ videoId }) {
                 player = self.controller.player;
                 _player = player;
                 var paused = false;
-                var recognition = null;
+                var mediaRecorder = null;
+                var audioStream = null;
+                var audioBlob = null;
+                var audioChunks = [];
                 var transcriptText = '';
 
                 var DECLARATION = "I, Rahul Sharma, confirm that I am purchasing a life insurance policy from Pramerica Life Insurance. I acknowledge that this is not a fixed deposit or savings scheme. I agree to pay a premium of ₹12,500 annually.";
@@ -531,86 +534,118 @@ export default function VideoPlayer({ videoId }) {
                         player.pauseVideo();
                         paused = true;
 
-                        // Release audio tracks so SpeechRecognition can use mic (mobile fix)
+                        // Release audio tracks so MediaRecorder can use mic
                         if (cameraStreamRef.current) {
                             cameraStreamRef.current.getAudioTracks().forEach(function(t) { t.stop(); });
                         }
 
-                        // Start speech recognition
-                        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                        if (SpeechRecognition) {
-                            recognition = new SpeechRecognition();
-                            recognition.continuous = false;
-                            recognition.interimResults = false;
-                            recognition.lang = 'en-IN';
-
-                            var manualStop = false;
-                            var restartTimer = null;
-
-                            function scheduleRestart() {
-                                clearTimeout(restartTimer);
-                                restartTimer = setTimeout(function () {
-                                    if (!manualStop && recognition && paused) {
-                                        try { recognition.start(); } catch (e) {}
-                                    }
-                                }, 500);
-                            }
-
-                            recognition.onresult = function (event) {
-                                var result = event.results[0];
-                                if (result && result.isFinal) {
-                                    transcriptText += result[0].transcript + ' ';
-                                    $("#declaration-transcript").text(transcriptText.trim());
-                                    var box = $("#declaration-transcript-box");
-                                    box.show();
-                                    box[0].scrollTop = box[0].scrollHeight;
-                                }
-                            };
-
-                            recognition.onerror = function (event) {
-                                console.warn('Speech recognition error:', event.error);
-                            };
-
-                            recognition.onend = function () {
-                                if (!manualStop && recognition && paused) {
-                                    scheduleRestart();
-                                }
-                            };
-
-                            recognition._stop = function () {
-                                manualStop = true;
-                                clearTimeout(restartTimer);
-                                try { recognition.stop(); } catch (e) {}
-                            };
-                            recognition._restart = function () {
-                                manualStop = false;
-                                scheduleRestart();
-                            };
-
-                            recognition.start();
-                            $("#declaration-mic-waiting").hide();
-                            $("#declaration-listening").show();
-                            // Enable the button
-                            $("#btn-declaration-done").css({
-                                background: '#003d6b',
-                                color: '#fff',
-                                cursor: 'pointer',
-                                pointerEvents: 'auto'
-                            }).addClass('hover:bg-[#002d52]');
-                        }
+                        // Start MediaRecorder for audio capture
+                        startDeclarationRecording();
                     }
                 });
 
-                $("#btn-declaration-done").off().on("click", async function () {
-                    if (recognition) recognition._stop();
+                function startDeclarationRecording() {
+                    return navigator.mediaDevices.getUserMedia({ audio: true })
+                        .then(function (stream) {
+                            audioStream = stream;
+                            var mimeType = MediaRecorder.isTypeSupported('audio/webm')
+                                ? 'audio/webm'
+                                : MediaRecorder.isTypeSupported('audio/mp4')
+                                ? 'audio/mp4'
+                                : '';
+                            mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType: mimeType } : undefined);
+                            audioChunks = [];
+                            mediaRecorder.ondataavailable = function (e) {
+                                if (e.data.size > 0) audioChunks.push(e.data);
+                            };
+                            mediaRecorder.onstop = function () {
+                                audioBlob = new Blob(audioChunks, { type: mimeType || 'audio/webm' });
+                            };
+                            mediaRecorder.start();
 
-                    if (!transcriptText.trim()) {
-                        $("#declaration-message").text('No speech detected. Please read the statement aloud.').css('color', '#dc2626');
-                        if (recognition) recognition._restart();
+                            $("#declaration-mic-waiting").hide();
+                            $("#declaration-listening").show();
+                            $("#declaration-hint").show();
+                            $("#declaration-review-label").hide();
+                            $("#declaration-transcript-box").hide();
+                            $("#declaration-review-buttons").hide();
+                            $("#btn-declaration-done").text('I Have Read the Statement').show().css({
+                                background: '#003d6b',
+                                color: '#fff',
+                                cursor: 'pointer',
+                                pointerEvents: 'auto',
+                                opacity: 1
+                            }).addClass('hover:bg-[#002d52]');
+                        })
+                        .catch(function () {
+                            $("#declaration-message").text('Microphone access denied.').css('color', '#dc2626');
+                        });
+                }
+
+                // Click "Done" → transcribe
+                $("#btn-declaration-done").off().on("click", async function () {
+                    var $btn = $(this);
+                    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+
+                    $btn.text('Transcribing...').css({ opacity: 0.6, pointerEvents: 'none' });
+                    $("#declaration-message").text('').css('color', '');
+                    $("#declaration-listening").hide();
+                    $("#declaration-hint").hide();
+
+                    await new Promise(function (resolve) {
+                        mediaRecorder.addEventListener('stop', resolve, { once: true });
+                        try { mediaRecorder.stop(); } catch (e) { resolve(); }
+                    });
+
+                    if (audioStream) {
+                        audioStream.getTracks().forEach(function (t) { t.stop(); });
+                        audioStream = null;
+                    }
+
+                    if (!audioBlob || audioBlob.size === 0) {
+                        $("#declaration-message").text('No audio captured. Please try again.').css('color', '#dc2626');
+                        await startDeclarationRecording();
                         return;
                     }
 
-                    $(this).text('Verifying...').css({ opacity: 0.6, pointerEvents: 'none' });
+                    try {
+                        var { transcribeAudio } = await import('../services/geminiService.js');
+                        var spoken = await transcribeAudio(audioBlob, audioBlob.type || 'audio/webm');
+
+                        if (!spoken) {
+                            $("#declaration-message").text('No speech detected. Please try again.').css('color', '#dc2626');
+                            await startDeclarationRecording();
+                            return;
+                        }
+
+                        transcriptText = spoken;
+                        $("#declaration-transcript").text(spoken);
+                        $("#declaration-transcript-box").show();
+                        $("#declaration-review-label").show();
+                        $btn.hide();
+                        $("#declaration-review-buttons").css('display', 'flex');
+                    } catch (err) {
+                        $("#declaration-message").text('Transcription failed. Please try again.').css('color', '#dc2626');
+                        await startDeclarationRecording();
+                    }
+                });
+
+                // Click "Retry" → discard transcript, re-record
+                $("#btn-declaration-retry").off().on("click", async function () {
+                    transcriptText = '';
+                    audioBlob = null;
+                    $("#declaration-transcript").text('');
+                    $("#declaration-transcript-box").hide();
+                    $("#declaration-review-label").hide();
+                    $("#declaration-message").text('').css('color', '');
+                    $("#declaration-review-buttons").hide();
+                    await startDeclarationRecording();
+                });
+
+                // Click "Continue" → verify transcript via Gemini
+                $("#btn-declaration-continue").off().on("click", async function () {
+                    var $btn = $(this);
+                    $btn.text('Verifying...').css({ opacity: 0.6, pointerEvents: 'none' });
                     $("#declaration-message").text('').css('color', '');
 
                     try {
@@ -619,8 +654,6 @@ export default function VideoPlayer({ videoId }) {
 
                         if (passed) {
                             $("#declaration-message").text('Verification successful!').css('color', '#16a34a');
-                            recognition = null;
-                            // Stop recording / hide PIP
                             if (typeof _stopRecordingFn === 'function') _stopRecordingFn();
                             setTimeout(function () {
                                 player.seekTo(315000);
@@ -628,17 +661,12 @@ export default function VideoPlayer({ videoId }) {
                                 paused = false;
                             }, 1000);
                         } else {
-                            $("#declaration-message").text('Text did not match. Please try again.').css('color', '#dc2626');
-                            $(this).text('I Have Read the Statement').css({ opacity: 1, pointerEvents: 'auto' });
-                            transcriptText = '';
-                            $("#declaration-transcript").text('');
-                            $("#declaration-transcript-box").hide();
-                            if (recognition) recognition._restart();
+                            $("#declaration-message").text('Text did not match. Please retry.').css('color', '#dc2626');
+                            $btn.text('Continue').css({ opacity: 1, pointerEvents: 'auto' });
                         }
                     } catch (err) {
                         $("#declaration-message").text('Verification failed. Please try again.').css('color', '#dc2626');
-                        $(this).text('I Have Read the Statement').css({ opacity: 1, pointerEvents: 'auto' });
-                        if (recognition) recognition._restart();
+                        $btn.text('Continue').css({ opacity: 1, pointerEvents: 'auto' });
                     }
                 });
             },

@@ -10,6 +10,34 @@ export function createGeminiClient() {
 
 const CHAT_MODEL = 'gemini-2.0-flash';
 
+async function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result;
+            const base64 = dataUrl.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+export async function transcribeAudio(blob, mimeType = 'audio/webm') {
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const base64 = await blobToBase64(blob);
+    const response = await ai.models.generateContent({
+        model: CHAT_MODEL,
+        contents: [{
+            parts: [
+                { inlineData: { mimeType, data: base64 } },
+                { text: 'Transcribe this audio into English text only. Return ONLY the spoken words, nothing else. No labels, no quotes, no prefixes.' }
+            ]
+        }]
+    });
+    return (response.text || '').trim();
+}
+
 export async function verifySpeechText(spokenText, expectedText) {
     const ai = new GoogleGenAI({ apiKey: API_KEY });
     const response = await ai.models.generateContent({
