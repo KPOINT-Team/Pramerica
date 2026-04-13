@@ -41,13 +41,13 @@ export default function PersonalDetailsScreen() {
                         id="btn-details-confirm"
                         className="welcome-btn welcome-btn-filled kpw-action-button flex-1 text-center"
                     >
-                        Correct
+                        Confirm
                     </div>
                     <div
                         id="btn-details-no"
                         className="welcome-btn welcome-btn-outline kpw-action-button flex-1 text-center"
                     >
-                        Incorrect
+                        No
                     </div>
                 </div>
             </div>
