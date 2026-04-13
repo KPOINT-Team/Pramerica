@@ -13,6 +13,7 @@ body {
 
 .video-container {
     position: relative;
+    aspect-ratio: 9/16;
     width: 100%;
     max-width: 100vw;
     background-color:#d4e7f3;
