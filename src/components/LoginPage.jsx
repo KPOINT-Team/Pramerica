@@ -18,7 +18,7 @@ export default function LoginPage() {
       setAuthed(true);
     } catch (err) {
       setError(err.message === 'invalid_credentials'
-        ? 'Invalid Agent ID or Password'
+        ? 'Invalid User ID or Password'
         : 'Login failed. Please try again.');
     } finally {
       setLoading(false);
@@ -43,7 +43,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label htmlFor="agentId" className="block text-sm font-medium text-gray-700 mb-1.5">
-              Agent ID
+              User ID
             </label>
             <input
               id="agentId"
@@ -52,7 +52,7 @@ export default function LoginPage() {
               value={agentId}
               onChange={(e) => setAgentId(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0066b3] focus:border-transparent transition"
-              placeholder="Enter your Agent ID"
+              placeholder="Enter your User ID"
               disabled={loading}
             />
           </div>
