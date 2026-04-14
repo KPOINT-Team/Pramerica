@@ -92,7 +92,7 @@ function setQueryParam(el) {
     }
 }
 
-export default function VideoPlayer({ videoId }) {
+export default function VideoPlayer({ videoId, onReady }) {
     const videoRef = useRef(null);
     const vid = videoId || 'gcc-5639d983-8489-48c7-8013-3da7dd96f7a3';
     const [showVoiceChat, setShowVoiceChat] = useState(false);
@@ -120,6 +120,13 @@ export default function VideoPlayer({ videoId }) {
         kpScript.src = 'https://ccoe.kpoint.com/assets/orca/media/embed/videofront-vega.js';
         kpScript.type = 'text/javascript';
         document.body.appendChild(kpScript);
+
+        // Fires as soon as KPoint player is ready (before any widget callbacks)
+        window.onkPointPlayerReady = (kpPlayer) => {
+            player = kpPlayer;
+            _player = kpPlayer;
+            if (onReady) onReady();
+        };
 
         // --- KPoint widget callbacks ---
 
@@ -804,6 +811,7 @@ export default function VideoPlayer({ videoId }) {
 
         // --- Cleanup ---
         return () => {
+            delete window.onkPointPlayerReady;
             delete window['language-selector-callback'];
             delete window['document-selector-callback'];
             delete window['document-upload-callback'];
