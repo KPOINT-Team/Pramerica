@@ -25,7 +25,7 @@ const VIDEO_PARAMS = JSON.stringify({
     search: false,
     like: false,
     showPlayIconOnMobile: false,
-    playercontrols: { hide: 'all' },
+    // playercontrols: { hide: 'all' },
     'add-widgets': 'utils,markup,fontloader',
 });
 
@@ -113,6 +113,13 @@ export default function VideoPlayer({ videoId }) {
 
     useEffect(() => {
         let player = null;
+
+        // Re-trigger KPoint embed: the external script may have already scanned the DOM
+        // before this component mounted (e.g. after login). Re-adding the script forces re-scan.
+        const kpScript = document.createElement('script');
+        kpScript.src = 'https://ccoe.kpoint.com/assets/orca/media/embed/videofront-vega.js';
+        kpScript.type = 'text/javascript';
+        document.body.appendChild(kpScript);
 
         // --- KPoint widget callbacks ---
 
@@ -813,6 +820,7 @@ export default function VideoPlayer({ videoId }) {
             delete window['declaration-callback'];
             delete window['otp-callback'];
             delete window['acknowledge-callback'];
+            if (kpScript.parentNode) kpScript.parentNode.removeChild(kpScript);
         };
     }, []);
 

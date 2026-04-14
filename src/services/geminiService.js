@@ -1,14 +1,26 @@
 import { GoogleGenAI } from '@google/genai';
+import { proxyGenerate } from './authService.js';
 
 export const LIVE_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const CHAT_MODEL = 'gemini-2.0-flash';
 
-export function createGeminiClient() {
-    return new GoogleGenAI({ apiKey: API_KEY });
+export function createGeminiClientWithToken(ephemeralToken) {
+    // Ephemeral tokens require v1alpha — v1beta returns 404
+    return new GoogleGenAI({
+        apiKey: ephemeralToken,
+        httpOptions: { apiVersion: 'v1alpha' },
+    });
 }
 
-const CHAT_MODEL = 'gemini-2.0-flash';
+function extractText(response) {
+    // Serialized Gemini response loses the .text getter — extract manually
+    try {
+        return response.candidates[0].content.parts[0].text || '';
+    } catch {
+        return '';
+    }
+}
 
 async function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
@@ -24,31 +36,33 @@ async function blobToBase64(blob) {
 }
 
 export async function transcribeAudio(blob, mimeType = 'audio/webm') {
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
     const base64 = await blobToBase64(blob);
-    const response = await ai.models.generateContent({
+    const response = await proxyGenerate({
         model: CHAT_MODEL,
         contents: [{
             parts: [
                 { inlineData: { mimeType, data: base64 } },
-                { text: 'Transcribe this audio into English text only. Return ONLY the spoken words, nothing else. No labels, no quotes, no prefixes.' }
+                { text: 'Transcribe this audio into English text only, even if the speaker is speaking Hindi or any other language — transliterate or translate into English. Return ONLY the spoken words in English, nothing else. No labels, no quotes, no prefixes.' }
             ]
         }]
     });
-    return (response.text || '').trim();
+    return extractText(response).trim();
 }
 
 export async function verifySpeechText(spokenText, expectedText) {
-    const ai = new GoogleGenAI({ apiKey: API_KEY });
-    const response = await ai.models.generateContent({
+    const response = await proxyGenerate({
         model: CHAT_MODEL,
-        contents: `Compare these two texts and respond with ONLY "pass" or "fail". Pass if the spoken text is similar in meaning to the expected text (minor word differences, paraphrasing, or small errors are OK). Fail only if it's completely different or nonsensical.
+        contents: [{
+            parts: [{
+                text: `Compare these two texts and respond with ONLY "pass" or "fail". Pass if the spoken text is similar in meaning to the expected text (minor word differences, paraphrasing, or small errors are OK). Fail only if it's completely different or nonsensical.
 
 Expected: "${expectedText}"
 Spoken: "${spokenText}"
 
-Response (pass or fail only):`,
+Response (pass or fail only):`
+            }]
+        }]
     });
-    const result = (response.text || '').trim().toLowerCase();
+    const result = extractText(response).trim().toLowerCase();
     return result.includes('pass');
 }

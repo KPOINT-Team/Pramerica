@@ -7,6 +7,19 @@ import { verifySpeechText, transcribeAudio } from '../services/geminiService.js'
 
 const EXPECTED_TEXT = "My name is Rahul Sharma and I am starting my Pramerica onboarding.";
 
+const WAITING_MESSAGES = [
+    'Setting up...',
+    'Checking microphone...',
+    'Preparing audio...',
+    'Configuring settings...',
+    'Connecting services...',
+    'Verifying permissions...',
+    'Loading resources...',
+    'Finalizing setup...',
+    'Optimizing audio...',
+    'Almost ready...',
+];
+
 export default function CameraCheckScreen({ onRecordingStarted }) {
     const [phase, setPhase] = useState('setup');
     const [error, setError] = useState(null);
@@ -19,6 +32,7 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
     const [transcript, setTranscript] = useState('');
     const [audioState, setAudioState] = useState('recording'); // 'recording' | 'transcribing' | 'review' | 'verifying' | 'passed'
     const [pipMode, setPipMode] = useState(false);
+    const [waitingMsgIndex, setWaitingMsgIndex] = useState(0);
 
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -227,6 +241,16 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
         };
     }, [phase]);
 
+    // Cycle waiting messages every 1 second during audio-waiting phase
+    useEffect(() => {
+        if (phase !== 'audio-waiting') return;
+        setWaitingMsgIndex(0);
+        const interval = setInterval(() => {
+            setWaitingMsgIndex(prev => (prev + 1) % WAITING_MESSAGES.length);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [phase]);
+
     // Auto-scroll transcript box
     useEffect(() => {
         if (transcriptBoxRef.current) {
@@ -381,6 +405,10 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
 
     return (
         <div id="camera-check-screen" className="absolute inset-0 pointer-events-auto z-[1002]">
+            <style>{`
+                @keyframes pulseOpacityA { 0%,100% { opacity: 0.9; } 50% { opacity: 0.6; } }
+                @keyframes pulseOpacityB { 0%,100% { opacity: 0.6; } 50% { opacity: 0.9; } }
+            `}</style>
             {/* Full-screen camera */}
             {showFullScreen && (
                 <div className="absolute inset-0 bg-black">
@@ -454,106 +482,114 @@ export default function CameraCheckScreen({ onRecordingStarted }) {
                 </div>
             )}
 
-            {/* Audio — CENTERED (with speech recognition + Done button) */}
-            {showAudioCard && (
+            {/* Audio — waiting phase with cycling messages */}
+            {showAudioCard && !audioActive && (
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-5 mx-4 w-[85%] max-w-xs shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                        <p className="text-[#003d6b] font-bold mb-2 text-center" style={{ fontSize: 'calc(4 * var(--pw))' }}>Audio Check</p>
+                        <p className="text-[#003d6b] font-bold mb-3 text-center" style={{ fontSize: 'calc(4 * var(--pw))' }}>Audio Check</p>
+                        <div className="flex items-center justify-center gap-2">
+                            <Loader size={16} className="text-[#003d6b] animate-spin" />
+                            <p className="text-gray-500 text-center" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
+                                {WAITING_MESSAGES[waitingMsgIndex]}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                        {!audioActive && (
-                            <p className="text-gray-400 mb-3 text-center" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>Please wait...</p>
+            {/* Audio — full screen recording/review/verify */}
+            {audioActive && !audioPass && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-12 px-6 py-8 pointer-events-auto z-[1002]">
+                    {/* Top: instruction */}
+                    <div className="w-full">
+                        <p className="text-lack mb-4 text-md" >
+                            Record below text in your voice
+                        </p>
+                        <p className="text-black leading-snug text-xl">
+                            "{EXPECTED_TEXT}"
+                        </p>
+                    </div>
+
+                    {/* Middle: mic / transcript / status */}
+                    <div className="flex flex-col items-center gap-2 w-full">
+                        {audioState === 'recording' && (
+                            <>
+                                <Mic size={30} className="text-[#003d6b] animate-[pulseOpacityA_1.2s_ease-in-out_infinite]" />
+                                <p className="text-gray-500 text-sm animate-[pulseOpacityB_1.2s_ease-in-out_infinite]">Recording...</p>
+                            </>
+                        )}
+                        {audioState === 'transcribing' && (
+                            <>
+                                <Loader size={36} className="text-[#003d6b] animate-spin" />
+                                <p className="text-gray-500 text-sm" >Transcribing...</p>
+                            </>
+                        )}
+                        {audioState === 'verifying' && (
+                            <>
+                                <Loader size={36} className="text-[#003d6b] animate-spin" />
+                                <p className="text-gray-500 text-sm" >Verifying...</p>
+                            </>
+                        )}
+                        {audioState === 'review' && transcript && (
+                            <div ref={transcriptBoxRef} className="bg-blue-50 border border-blue-200 rounded-lg p-3 w-full overflow-y-auto" style={{ maxHeight: 'calc(25 * var(--pw))' }}>
+                                <p className="text-blue-800 text-center" style={{ fontSize: 'calc(3.2 * var(--pw))' }}>
+                                    {transcript}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Bottom: error + buttons */}
+                    <div className="w-full">
+                        {audioError && (
+                            <p className="text-red-500 text-center mb-2" style={{ fontSize: 'calc(3 * var(--pw))' }}>{audioError}</p>
                         )}
 
-                        {audioActive && !audioPass && (
+                        {audioState === 'recording' && (
                             <>
-                                <p className="text-gray-500 mb-2 text-center" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>Please say the following out loud:</p>
-                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-3">
-                                    <p className="text-gray-800 leading-relaxed italic text-center" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>
-                                        "{EXPECTED_TEXT}"
-                                    </p>
-                                </div>
-
-                                {/* Transcript preview (review state) */}
-                                {audioState === 'review' && transcript && (
-                                    <div ref={transcriptBoxRef} className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-3 overflow-y-auto" style={{ maxHeight: 'calc(20 * var(--pw))' }}>
-                                        <p className="text-blue-800 text-center" style={{ fontSize: 'calc(3 * var(--pw))' }}>
-                                            {transcript}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Status indicator */}
-                                <div className="flex items-center justify-center gap-2 mb-3">
-                                    {audioState === 'recording' && (
-                                        <>
-                                            <Mic size={16} className="text-red-500 animate-pulse" />
-                                            <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Recording...</span>
-                                        </>
-                                    )}
-                                    {audioState === 'transcribing' && (
-                                        <>
-                                            <Loader size={16} className="text-blue-500 animate-spin" />
-                                            <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Transcribing...</span>
-                                        </>
-                                    )}
-                                    {audioState === 'review' && (
-                                        <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Review your speech:</span>
-                                    )}
-                                    {audioState === 'verifying' && (
-                                        <>
-                                            <Loader size={16} className="text-blue-500 animate-spin" />
-                                            <span className="text-gray-600 font-medium" style={{ fontSize: 'calc(3 * var(--pw))' }}>Verifying...</span>
-                                        </>
-                                    )}
-                                </div>
-
-                                {audioError && (
-                                    <p className="text-red-500 text-center mb-2" style={{ fontSize: 'calc(3 * var(--pw))' }}>{audioError}</p>
-                                )}
-
-                                {/* Buttons based on state */}
-                                {audioState === 'recording' && (
-                                    <>
-                                        <p className="text-gray-500 text-center mb-2" style={{ fontSize: 'calc(2.8 * var(--pw))' }}>
-                                            Tap Done when you're finished speaking.
-                                        </p>
-                                        <button
-                                            onClick={handleAudioDone}
-                                            className="w-full bg-[#003d6b] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer"
-                                            style={{ fontSize: 'calc(3.5 * var(--pw))' }}
-                                        >
-                                            Done
-                                        </button>
-                                    </>
-                                )}
-
-                                {audioState === 'review' && (
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={handleAudioRetry}
-                                            className="flex-1 bg-gray-200 text-gray-800 font-semibold py-2.5 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
-                                            style={{ fontSize: 'calc(3.5 * var(--pw))' }}
-                                        >
-                                            Retry
-                                        </button>
-                                        <button
-                                            onClick={handleAudioContinue}
-                                            className="flex-1 bg-[#003d6b] text-white font-semibold py-2.5 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer"
-                                            style={{ fontSize: 'calc(3.5 * var(--pw))' }}
-                                        >
-                                            Continue
-                                        </button>
-                                    </div>
-                                )}
+                                <p className="text-gray-600 text-center mb-2 text-sm">
+                                    Please Tap <strong>DONE</strong> after <strong>speaking</strong>
+                                </p>
+                                <button
+                                    onClick={handleAudioDone}
+                                    className="w-full bg-[#003d6b] text-white font-bold py-2 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer uppercase tracking-wide"
+                                    style={{ fontSize: 'calc(3.5 * var(--pw))' }}
+                                >
+                                    Done
+                                </button>
                             </>
                         )}
 
-                        {audioPass && (
-                            <div className="flex items-center justify-center gap-2 mt-3">
-                                <CheckCircle size={18} className="text-green-500" />
-                                <span className="text-green-700 font-medium" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>Audio verified</span>
+                        {audioState === 'review' && (
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleAudioRetry}
+                                    className="flex-1 bg-gray-200 text-gray-800 font-semibold py-2 rounded-lg hover:bg-gray-300 transition-colors cursor-pointer"
+                                    style={{ fontSize: 'calc(3.5 * var(--pw))' }}
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    onClick={handleAudioContinue}
+                                    className="flex-1 bg-[#003d6b] text-white font-semibold py-2 rounded-lg hover:bg-[#002d52] transition-colors cursor-pointer"
+                                    style={{ fontSize: 'calc(3.5 * var(--pw))' }}
+                                >
+                                    Continue
+                                </button>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Audio verified */}
+            {audioPass && showAudioCard && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-5 mx-4 w-[85%] max-w-xs shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                        <div className="flex items-center justify-center gap-2">
+                            <CheckCircle size={18} className="text-green-500" />
+                            <span className="text-green-700 font-medium" style={{ fontSize: 'calc(3.5 * var(--pw))' }}>Audio verified</span>
+                        </div>
                     </div>
                 </div>
             )}

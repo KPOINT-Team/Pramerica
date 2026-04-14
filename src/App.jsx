@@ -1,8 +1,13 @@
 import React from 'react';
 import VideoPlayer from './components/VideoPlayer.jsx';
+import LoginPage from './components/LoginPage.jsx';
+import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 
-export default function App() {
+function AppContent() {
+    const { authed } = useAuth();
     const videoId = 'gcc-5639d983-8489-48c7-8013-3da7dd96f7a3';
+
+    if (!authed) return <LoginPage />;
 
     return (
         <div className="h-screen w-screen flex items-center justify-center bg-black max-sm:bg-[#d4e7f3]">
@@ -10,5 +15,13 @@ export default function App() {
                 <VideoPlayer videoId={videoId} />
             </div>
         </div>
+    );
+}
+
+export default function App() {
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
     );
 }

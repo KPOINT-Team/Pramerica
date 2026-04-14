@@ -1,6 +1,7 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { Mic, Square, Loader } from 'lucide-react';
-import { createGeminiClient, LIVE_MODEL } from '../services/geminiService.js';
+import { createGeminiClientWithToken, LIVE_MODEL } from '../services/geminiService.js';
+import { getLiveToken } from '../services/authService.js';
 import { pausePlayer, playPlayer, isPlayerPaused } from './VideoPlayer.jsx';
 
 function encode(bytes) {
@@ -104,13 +105,26 @@ export default function VoiceChat() {
         isCleaningUpRef.current = false;
         setStatus('connecting');
 
-        const ai = createGeminiClient();
+        // Bake all constraints into the ephemeral token
+        const liveConfig = {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: 'Kore' },
+                },
+            },
+            systemInstruction: SYSTEM_INSTRUCTION,
+            thinkingConfig: { thinkingBudget: 0 },
+            inputAudioTranscription: {},
+            outputAudioTranscription: {},
+        };
+        const { token: ephemeralToken } = await getLiveToken(LIVE_MODEL, liveConfig);
+        const ai = createGeminiClientWithToken(ephemeralToken);
 
         try {
             const inputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
             const outputCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
 
-            // Mobile browsers require explicit resume after user gesture
             if (inputCtx.state === 'suspended') await inputCtx.resume();
             if (outputCtx.state === 'suspended') await outputCtx.resume();
 
@@ -119,17 +133,9 @@ export default function VoiceChat() {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaStreamRef.current = stream;
 
+            // No config — all constraints baked into the ephemeral token
             const sessionPromise = ai.live.connect({
                 model: LIVE_MODEL,
-                config: {
-                    responseModalities: ['AUDIO'],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: 'Kore' },
-                        },
-                    },
-                    systemInstruction: SYSTEM_INSTRUCTION,
-                },
                 callbacks: {
                     onopen: async () => {
                         isSessionActiveRef.current = true;
