@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import VideoPlayer from './components/VideoPlayer.jsx';
 import LoginPage from './components/LoginPage.jsx';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
+import { getUserId } from './services/authService.js';
 
 function AppContent() {
     const { authed, statusMsg } = useAuth();
@@ -16,7 +17,7 @@ function AppContent() {
                 {/* Always mount VideoPlayer once authed, but hide until ready */}
                 {authed && (
                     <div style={{ opacity: playerReady ? 1 : 0 }} className="w-full h-full">
-                        <VideoPlayer videoId={videoId} onReady={() => setPlayerReady(true)} />
+                        <VideoPlayer videoId={videoId} onReady={() => setPlayerReady(true)} userId={getUserId()} />
                     </div>
                 )}
 

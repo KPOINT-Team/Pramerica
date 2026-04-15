@@ -18,16 +18,19 @@ import CameraCheckScreen from './CameraCheckScreen.jsx';
 import DeclarationScreen from './DeclarationScreen.jsx';
 import VoiceChat from './VoiceChat.jsx';
 
-const VIDEO_PARAMS = JSON.stringify({
-    autoplay: true,
-    resume: false,
-    muted: 'false',
-    search: false,
-    like: false,
-    showPlayIconOnMobile: false,
-    playercontrols: { hide: 'all' },
-    'add-widgets': 'utils,markup,fontloader',
-});
+function getVideoParams(userId) {
+    return JSON.stringify({
+        autoplay: true,
+        resume: false,
+        muted: 'false',
+        search: false,
+        like: false,
+        showPlayIconOnMobile: false,
+        playercontrols: { hide: 'all' },
+        'add-widgets': 'utils,markup,fontloader',
+        ...(userId ? { trk_userid: userId } : {}),
+    });
+}
 
 const WIDGETS_CONFIG = JSON.stringify({
     markup: {
@@ -92,7 +95,7 @@ function setQueryParam(el) {
     }
 }
 
-export default function VideoPlayer({ videoId, onReady }) {
+export default function VideoPlayer({ videoId, onReady, userId }) {
     const videoRef = useRef(null);
     const vid = videoId || 'gcc-5639d983-8489-48c7-8013-3da7dd96f7a3';
     const [showVoiceChat, setShowVoiceChat] = useState(false);
@@ -841,7 +844,7 @@ export default function VideoPlayer({ videoId, onReady }) {
                 data-kvideo-id={vid}
                 data-samesite="true"
                 data-ar="9:16"
-                data-video-params={VIDEO_PARAMS}
+                data-video-params={getVideoParams(userId)}
                 data-personalization-info="{}"
                 data-widgets-config={WIDGETS_CONFIG}
                 className="kpoint-embedded-video"

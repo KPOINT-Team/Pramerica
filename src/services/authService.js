@@ -15,8 +15,18 @@ export async function login(clientId, clientSecret) {
   }
 
   const { token, expiresAt } = await res.json();
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, expiresAt }));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, expiresAt, userId: clientId }));
   return { token, expiresAt };
+}
+
+export function getUserId() {
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw).userId || null;
+  } catch {
+    return null;
+  }
 }
 
 export function getToken() {
