@@ -1,13 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { isAuthenticated, getToken, logout as clearAuth } from '../services/authService.js';
-
-const TOKEN_SERVICE_URL =
-  import.meta.env.VITE_TOKEN_SERVICE_URL || 'http://localhost:3000';
+import { isAuthenticated, refreshToken, logout as clearAuth } from '../services/authService.js';
 
 const AuthContext = createContext(null);
-
-// null = checking, true = valid, false = not authenticated
-// statusMsg = what's shown on the splash screen
 
 export function AuthProvider({ children }) {
   const [authed, setAuthed] = useState(null);
@@ -15,30 +9,24 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     async function verify() {
-      // Step 1: Check local token
       setStatusMsg('Checking session...');
       if (!isAuthenticated()) {
         setAuthed(false);
         return;
       }
 
-      // Step 2: Verify with server
-      setStatusMsg('Validating token...');
+      setStatusMsg('Refreshing session...');
       try {
-        const res = await fetch(`${TOKEN_SERVICE_URL}/api/health`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        });
-        if (res.ok) {
-          setStatusMsg('Session verified');
-          // Small delay so user sees "Session verified"
-          await new Promise((r) => setTimeout(r, 400));
-          setAuthed(true);
-        } else {
+        await refreshToken();
+        setStatusMsg('Session verified');
+        await new Promise((r) => setTimeout(r, 300));
+        setAuthed(true);
+      } catch (err) {
+        if (err?.message === 'invalid_or_expired_token' || err?.message === 'client_not_found' || err?.message === 'origin_not_allowed') {
           clearAuth();
           setAuthed(false);
+          return;
         }
-      } catch {
-        // Server unreachable — trust local token expiry
         setStatusMsg('Offline mode');
         await new Promise((r) => setTimeout(r, 300));
         setAuthed(true);

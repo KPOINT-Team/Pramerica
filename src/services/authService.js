@@ -29,6 +29,39 @@ export function getUserId() {
   }
 }
 
+export async function refreshToken() {
+  const current = getRawToken();
+  if (!current) throw new Error("Not authenticated");
+
+  const res = await fetch(`${TOKEN_SERVICE_URL}/api/token/refresh`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${current}`,
+    },
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Token refresh failed");
+  }
+
+  const { token, expiresAt } = await res.json();
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, expiresAt }));
+  return { token, expiresAt };
+}
+
+function getRawToken() {
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+  try {
+    const { token } = JSON.parse(raw);
+    return token || null;
+  } catch {
+    return null;
+  }
+}
+
 export function getToken() {
   const raw = sessionStorage.getItem(SESSION_KEY);
   if (!raw) return null;
